@@ -1,0 +1,206 @@
+# Practical Machine Learning - Practical Machine Learning
+---
+title: "Practical Machine Learning - Practical Machine Learning"
+output: 
+  html_document:
+    keep_md: true
+  Author: IM, date 2015-06-23. Test
+---
+
+## Introduction
+This report describes the result of the project for the coursera 
+project "practical machine learning". 
+The description of the project can be found here: 
+https://class.coursera.org/predmachlearn-030/human_grading/view/courses/975199/assessments/4/submissions 
+
+The data for this project has come from this source: http://groupware.les.inf.puc-rio.br/har. 
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively.
+In this project,  data will be used from accelerometers on the belt, forearm, arm, and dumbell of 6 participants whowere asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+The goal of the project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. Any of the other variables 
+might be used for the prediction.  
+
+The report should contain the following elements 
+- describing how you built your model, 
+- how you used cross validation, 
+- what you think the expected out of sample error is, and 
+- why you made the choices you did. 
+
+Finally, the evental prediction model will be used 
+to predict 20 different test cases. 
+
+##Data 
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The following steps were taken in processing the data
+
+1. Download the file from the URL given above  
+2. Load the data  loaded into R using the read.csv function
+
+```{r loaddata, echo = TRUE}
+
+# 1. Download the file 
+url<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+csvFilename<-"pml-training.csv"
+if (file.exists(csvFilename)!=TRUE){
+  setInternet2(use = TRUE)
+  download.file(url,csvFilename,mode="wb")
+}
+# 2. load the data (i.e. read.csv())
+trainData <- read.csv(csvFilename, header = TRUE)
+
+```
+##Cleaning the data
+First the data has to be cleaned from impurities such as NA data
+and the proper variables have to be selected. 
+
+Unfortunately, the project description is somewhat contradictive. 
+The background section describes that the goal will be 
+"to use data from accelerometers on the belt, forearm, arm, and dumbell."
+Later, it states " You may use any of the other variables to predict with". 
+
+This report will only use the variables from the accelerators. 
+First the dataset is limited to the data of the accelerators alone
+which have the string "accel" in their name. 
+Subsequently variables that mainly contain NA are removed. 
+
+
+```{r cleandata, echo = TRUE}
+
+namesTrainData<-names(trainData)
+# select columns with accelerators
+colAccel<- grepl("accel",namesTrainData)
+# remove columns with var which are almost all NA
+trainDataSize<-dim(trainData)
+colClean<-as.numeric(colSums(is.na(trainData)))/trainDataSize[1]<0.95
+# combined 
+colCombined<-(colClean & colAccel )
+namesTrainDataCombined<-namesTrainData[colCombined]
+# add classe column
+
+myVars<-c(namesTrainDataCombined,"classe")
+# subset dataset 
+trainDataSub<-trainData[myVars]
+dim(trainDataSub)
+
+```
+
+##Preliminary data analysis
+To get a sense of the data, the following 4 figures show the 
+acceleration per type ( total, x-component, y-component, z-component)
+to assess whether there are any clear relationships between these
+variables and the class. 
+
+```{r prelimdataanalysis, echo = TRUE}
+library(caret)
+library(kernlab)
+
+posTotal<-grepl("total",names(trainDataSub))
+featurePlot(x=trainDataSub[,posTotal],y=factor(trainDataSub$classe),
+            plot="ellipse",auto.key = list(columns = 3), 
+            main = "acceleration total") 
+posX<-grepl("_x",names(trainDataSub))
+featurePlot(x=trainDataSub[,posX],y=factor(trainDataSub$classe),
+            plot="ellipse",auto.key = list(columns = 3), 
+            main = "acceleration x-component") 
+posY<-grepl("_y",names(trainDataSub))
+featurePlot(x=trainDataSub[,posY],y=factor(trainDataSub$classe),
+            plot="ellipse",auto.key = list(columns = 3), 
+            main = "acceleration y-component") 
+posZ<-grepl("_z",names(trainDataSub))
+featurePlot(x=trainDataSub[,posZ],y=factor(trainDataSub$classe),
+            plot="ellipse",auto.key = list(columns = 3), 
+            main = "acceleration z-component") 
+
+```
+From the plots, it is not really possible to see any relationship 
+between the variables and the classe as there is a lot of overlap 
+between all the classes. Hence, the relationship between the variables 
+and the classes are likely to be nonlinear. 
+
+##Machine learning algorithm including cross-validation 
+This classification problem requires a machine learning algorithm 
+that can predict multiple classes and that can handle non-linear data. 
+
+Therefore the choice has been made to use the random forest algorithm 
+which is often very accurate. 
+
+A con of the random forest algorithm is the risk of overfitting. 
+Therefore cross-validation is applied to assess the accuracy.  
+
+
+```{r machinelearning, echo = TRUE}
+# set the seed
+set.seed(1235)
+# do training on only part of the data to limit calculation time
+smallTrain<-createDataPartition(y=trainDataSub$classe,p=0.5,list=FALSE)
+trainDataSubSmall<-trainDataSub[smallTrain,]
+# fit the model using Random Forest and Cross validation 
+modelFit<-train(as.factor(classe)~.,data=trainDataSubSmall, method="rf", 
+                trControl=trainControl(method="cv",number=5),
+                prox=TRUE,allowParallel=TRUE)
+# print the results 
+print(modelFit)
+print(modelFit$finalModel)
+
+```
+
+##Expected out-of sample error. 
+
+From the final model, the estimate of the out of sample error is 6.48 %. 
+Since the training was done on a subset of the data, it is possible to 
+confirm this estimate with the remainder of the training data.
+
+```{r crossvalidation, echo = TRUE}
+# do training on only part of the data to limit calculation time
+crossDataSubSmall<-trainDataSub[-smallTrain,]
+crossDim<-dim(crossDataSubSmall)
+# predict the model on the data not used in thre training set
+crossPred<-predict(modelFit,crossDataSubSmall)
+crossDataSubSmall$predRight<-crossPred==crossDataSubSmall$classe
+crossAcc<-sum(crossDataSubSmall$predRight)/crossDim[1]*100
+crossAccError<- 100 - crossAcc
+confusionMatrix(crossPred,crossDataSubSmall$classe)
+
+```
+
+The error of the cross-validation is `r crossAccError` %. 
+
+## Test set 
+The trained machine learning algorithm also has to be applied to the 20 test cases available . The predictions have to be submitted in the appropriate format 
+using for instance the function given in the programming assignment. 
+ 
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv 
+
+```{r loaddatatest, echo = TRUE}
+
+# a. Download the file 
+urlt<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+csvFilenamet<-"pml-testing.csv"
+if (file.exists(csvFilenamet)!=TRUE){
+  setInternet2(use = TRUE)
+  download.file(urlt,csvFilenamet,mode="wb")
+}
+# b. load the data (i.e. read.csv())
+testData <- read.csv(csvFilenamet, header = TRUE)
+# run the prediction 
+pred <- predict(modelFit, testData)
+# function to write to file from the programming assignment
+# 
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+predc<-as.character(pred)
+pml_write_files(predc)
+
+```
