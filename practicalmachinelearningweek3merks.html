@@ -148,7 +148,7 @@ featurePlot(x=trainDataSub[,posZ],y=factor(trainDataSub$classe),
 <h2>Machine learning algorithm including cross-validation</h2>
 <p>This classification problem requires a machine learning algorithm that can predict multiple classes and that can handle non-linear data.</p>
 <p>Therefore the choice has been made to use the random forest algorithm which is often very accurate.</p>
-<p>A con of the random forest algorithm is the risk of overfitting. Therefore cross-validation is applied to asses the accuracy</p>
+<p>A con of the random forest algorithm is the risk of overfitting. Therefore cross-validation is applied to assess the accuracy.</p>
 <pre class="r"><code># set the seed
 set.seed(1235)
 # do training on only part of the data to limit calculation time
@@ -200,20 +200,48 @@ print(modelFit)</code></pre>
 </div>
 <div id="expected-out-of-sample-error." class="section level2">
 <h2>Expected out-of sample error.</h2>
-<p>From the final model, the estimate of the out of sample error is 8.56%. Since the training was done on a subset of the data, it is possible to confirm this estimate with the remainder of the training data.</p>
+<p>From the final model, the estimate of the out of sample error is 6.48 %. Since the training was done on a subset of the data, it is possible to confirm this estimate with the remainder of the training data.</p>
 <pre class="r"><code># do training on only part of the data to limit calculation time
 crossDataSubSmall&lt;-trainDataSub[-smallTrain,]
-# fit the model using Random Forest and Cross validation 
+crossDim&lt;-dim(crossDataSubSmall)
+# predict the model on the data not used in thre training set
 crossPred&lt;-predict(modelFit,crossDataSubSmall)
 crossDataSubSmall$predRight&lt;-crossPred==crossDataSubSmall$classe
-table(crossPred,crossDataSubSmall$classe)</code></pre>
-<pre><code>##          
-## crossPred    A    B    C    D    E
-##         A 2666   85   33   38    2
-##         B   11 1696   48    9   32
-##         C   47   83 1599   72    9
-##         D   64   21   24 1485   17
-##         E    2   13    7    4 1743</code></pre>
+crossAcc&lt;-sum(crossDataSubSmall$predRight)/crossDim[1]*100
+crossAccError&lt;- 100 - crossAcc
+confusionMatrix(crossPred,crossDataSubSmall$classe)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 2666   85   33   38    2
+##          B   11 1696   48    9   32
+##          C   47   83 1599   72    9
+##          D   64   21   24 1485   17
+##          E    2   13    7    4 1743
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.9367          
+##                  95% CI : (0.9317, 0.9414)
+##     No Information Rate : 0.2844          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.9199          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9556   0.8936   0.9345   0.9235   0.9667
+## Specificity            0.9775   0.9874   0.9739   0.9846   0.9968
+## Pos Pred Value         0.9441   0.9443   0.8834   0.9218   0.9853
+## Neg Pred Value         0.9823   0.9748   0.9860   0.9850   0.9925
+## Prevalence             0.2844   0.1935   0.1744   0.1639   0.1838
+## Detection Rate         0.2718   0.1729   0.1630   0.1514   0.1777
+## Detection Prevalence   0.2879   0.1831   0.1845   0.1642   0.1803
+## Balanced Accuracy      0.9665   0.9405   0.9542   0.9541   0.9817</code></pre>
+<p>The error of the cross-validation is 6.3302752 %.</p>
 </div>
 <div id="test-set" class="section level2">
 <h2>Test set</h2>
